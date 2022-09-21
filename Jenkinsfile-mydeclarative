@@ -1,0 +1,70 @@
+pipeline{
+   agent any
+   tools {
+       maven "maven3.8.6"
+   }
+   
+   stages {
+       stage("1GetCode"){
+           steps {
+               sh "echo 'cloning the lastest application version'"
+               git "https://github.com/psousen/maven-web-application.git"
+           }
+       }
+       
+       stage("2Test&Build"){
+           steps {
+               sh "echo 'running JUNIT test cases'"
+               sh "echo 'testing must be passed to create artifacts'"
+               sh "mvn clean package"
+            }
+       }
+       
+       stage("3CodeQuality"){
+           steps {
+               sh "echo 'performing code quality analysis'"
+               sh "mvn sonar:sonar"
+           }
+       }
+       
+       stage("4ArtifactsBackup"){
+           steps {
+               sh "echo 'uploading artifacts to nexus for backup'"
+               sh "mvn deploy"
+           }
+       }
+       
+       stage("5deploy2prod"){
+           steps{
+               sh "echo 'deploying to productiong'"
+               deploy adapters: [tomcat9(credentialsId: 'tomcat9-credentials', path: '', url: 'http://54.208.182.59:8080/')], contextPath: null, war: 'target/*war'
+           }
+       }
+   }
+    post{
+        always{
+          emailext body: '''Hey Guys,
+Please check build status.
+
+Thanks
+Gogetters Tech''', recipientProviders: [previous(), developers(), brokenTestsSuspects()], subject: 'Success', to: 'psousen@gmail.com'  
+        }
+        success{
+            emailext body: '''Hey Guys,
+Good job, build and deployment is successful.
+
+Thanks
+Gogetters Tech''', recipientProviders: [previous(), developers(), brokenTestsSuspects()], subject: 'Success', to: 'psousen@gmail.com'
+        }
+        
+        failure{
+        emailext body: '''Hey Guys,
+Build failed, please identify issues & resolve issues.
+
+Thanks
+Gogetters Tech''', recipientProviders: [previous(), developers(), brokenTestsSuspects()], subject: 'Success', to: 'psousen@gmail.com'
+            
+        }
+    }
+}  
+ 
